@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GLOBALTY® — Dashboard Operativo Multiplanta</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f6f9;--surface:#ffffff;--surface2:#f0f2f6;--border:#dde1ea;
+  --accent:#0066cc;--accent2:#ff6b35;--accent3:#0099cc;--warn:#e6a817;
+  --danger:#d63031;--text:#1a1f2e;--text-muted:#7a8299;--text-dim:#4a5568;
+  --font-display:'Bebas Neue',sans-serif;--font-mono:'IBM Plex Mono',monospace;
+  --font-body:'IBM Plex Sans',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:var(--font-body);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,102,204,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,102,204,0.04) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+.app{position:relative;z-index:1;}
+
+/* LOADING */
+#loading{position:fixed;inset:0;background:#111318;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;gap:20px;}
+.loading-logo{font-family:var(--font-display);font-size:64px;letter-spacing:8px;color:var(--accent);}
+.loading-bar-track{width:320px;height:2px;background:#1e2330;overflow:hidden;}
+.loading-bar{height:100%;background:#0066cc;animation:loadbar 3s ease-in-out forwards;}
+@keyframes loadbar{from{width:0}to{width:100%}}
+.loading-text{font-family:var(--font-mono);font-size:11px;color:#8892a4;letter-spacing:2px;animation:blink 1s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* ERROR */
+#error-banner{display:none;background:rgba(255,71,87,0.1);border:1px solid var(--danger);color:var(--danger);font-family:var(--font-mono);font-size:12px;padding:12px 32px;text-align:center;}
+
+/* HEADER */
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--border);background:rgba(10,12,15,0.97);backdrop-filter:blur(12px);position:sticky;top:0;z-index:100;flex-wrap:wrap;gap:12px;}
+.logo-block{display:flex;align-items:center;gap:14px;}
+.logo-text{font-family:var(--font-display);font-size:22px;letter-spacing:3px;color:#f0c000;}
+.logo-sub{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:2px;margin-top:2px;}
+.header-right{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.filter-group{display:flex;align-items:center;gap:8px;}
+.filter-label{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1px;}
+select{background:#1e2330;border:1px solid #2a3048;color:#d0d8ea;font-family:var(--font-mono);font-size:11px;padding:6px 10px;cursor:pointer;outline:none;transition:border-color .2s;border-radius:3px;}
+select:hover{border-color:var(--accent);}
+.status-pill{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10px;color:var(--text-dim);padding:5px 10px;border:1px solid var(--border);}
+.status-dot{width:7px;height:7px;border-radius:50%;background:#00bb77;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* PERIODO BANNER */
+.periodo-banner{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 28px;display:flex;align-items:center;gap:24px;flex-wrap:wrap;}
+.periodo-item{display:flex;flex-direction:column;gap:2px;}
+.periodo-label{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1px;}
+.periodo-val{font-family:var(--font-mono);font-size:12px;color:var(--accent);}
+.periodo-sep{width:1px;height:28px;background:var(--border);}
+
+/* MAIN */
+main{padding:24px 28px;display:none;}
+
+/* TABS */
+.tab-bar{display:flex;border-bottom:1px solid var(--border);margin-bottom:22px;flex-wrap:wrap;gap:4px;}
+.tab-btn{font-family:var(--font-mono);font-size:10px;letter-spacing:2px;padding:10px 16px;cursor:pointer;border:none;background:transparent;color:var(--text-muted);border-bottom:2px solid transparent;transition:all .2s;text-transform:uppercase;}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-btn:hover{color:var(--text);}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+
+/* SECTION TITLE */
+.section-title{font-family:var(--font-mono);font-size:13px;font-weight:600;letter-spacing:3px;color:var(--text-dim);text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:10px;}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* KPI GRID */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:22px;}
+.kpi-card{background:var(--surface);border:1px solid var(--border);padding:20px;position:relative;overflow:hidden;transition:border-color .2s,transform .2s;}
+.kpi-card:hover{border-color:var(--accent);transform:translateY(-2px);}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--accent);}
+.kpi-card.warn::before{background:var(--warn);}
+.kpi-card.danger::before{background:var(--danger);}
+.kpi-card.blue::before{background:var(--accent3);}
+.kpi-card.orange::before{background:var(--accent2);}
+.kpi-card.green::before{background:#00cc88;}
+.kpi-label{font-family:var(--font-body);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--text-dim);text-transform:uppercase;margin-bottom:8px;}
+.kpi-value{font-family:var(--font-display);font-size:42px;line-height:1;color:var(--text);}
+.kpi-unit{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-top:3px;}
+.kpi-meta{font-family:var(--font-mono);font-size:9px;margin-top:6px;}
+.up{color:#00cc88;}.down{color:var(--danger);}.neutral{color:var(--text-muted);}
+.progress-track{margin-top:8px;height:2px;background:var(--border);}
+.progress-fill{height:100%;background:var(--accent);transition:width 1s ease;}
+.progress-fill.warn{background:var(--warn);}.progress-fill.danger{background:var(--danger);}
+.progress-fill.green{background:#00cc88;}
+
+/* COMP GRID */
+.comp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;margin-bottom:22px;}
+.comp-card{background:var(--surface);border:1px solid var(--border);padding:18px;}
+.comp-title{font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;margin-bottom:12px;}
+.comp-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(0,0,0,0.05);}
+.comp-row:last-child{border-bottom:none;}
+.comp-metric{font-family:var(--font-mono);font-size:10px;color:var(--text-dim);font-weight:600;}
+.comp-vals{display:flex;gap:8px;align-items:center;}
+.comp-now{font-family:var(--font-mono);font-size:12px;color:var(--text);font-weight:700;}
+.comp-prev{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);}
+.delta{font-family:var(--font-mono);font-size:10px;font-weight:700;padding:2px 5px;}
+.delta.pos{color:#00cc88;}.delta.neg{color:var(--danger);}.delta.neu{color:var(--text-muted);}
+
+/* CHARTS */
+.charts-grid{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:22px;}
+.charts-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px;}
+.charts-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:22px;}
+.chart-card{background:var(--surface);border:1px solid var(--border);padding:18px;}
+.chart-title{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;}
+.chart-tag{font-size:8px;padding:2px 6px;border:1px solid var(--border);color:var(--text-muted);}
+canvas{max-height:220px;}
+
+/* TABLE */
+.table-card{background:var(--surface);border:1px solid var(--border);margin-bottom:22px;overflow:hidden;}
+.table-header{padding:14px 18px;border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;}
+table{width:100%;border-collapse:collapse;}
+th{background:var(--surface2);font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;}
+td{font-family:var(--font-mono);font-size:11px;padding:8px 12px;border-bottom:1px solid rgba(0,0,0,0.04);color:var(--text-dim);white-space:nowrap;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(0,102,204,0.03);color:var(--text);}
+td.hl{color:var(--text);}td.acc{color:var(--accent);}td.dng{color:var(--danger);}td.wrn{color:var(--warn);}
+.chip{display:inline-block;padding:2px 7px;font-size:9px;font-family:var(--font-mono);}
+.chip-ok{background:rgba(0,204,136,0.1);color:#00aa55;border:1px solid rgba(0,204,136,0.3);}
+.chip-warn{background:rgba(230,168,23,0.1);color:var(--warn);border:1px solid rgba(230,168,23,0.3);}
+.chip-bad{background:rgba(214,48,49,0.1);color:var(--danger);border:1px solid rgba(214,48,49,0.3);}
+
+/* RESUMEN PLANTAS */
+.plantas-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:22px;}
+.planta-card{background:var(--surface);border:1px solid var(--border);padding:20px;border-radius:2px;}
+.planta-card-title{font-family:var(--font-display);font-size:20px;letter-spacing:2px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid var(--border);}
+.planta-stat{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.04);}
+.planta-stat:last-child{border-bottom:none;}
+.planta-stat-label{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);}
+.planta-stat-val{font-family:var(--font-mono);font-size:12px;color:var(--text);font-weight:700;}
+
+footer{border-top:1px solid var(--border);padding:14px 28px;display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1px;}
+
+@media(max-width:900px){
+  .charts-grid,.charts-grid-2,.charts-grid-3,.comp-grid{grid-template-columns:1fr;}
+  header{flex-direction:column;align-items:flex-start;}
+  main{padding:14px;}
+  .kpi-value{font-size:32px;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<div id="loading">
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:72px;letter-spacing:8px;">
+    <span style="color:#ffffff">GLOBAL</span><span style="color:#4d9fff">TY</span><sup style="font-size:18px;color:#4d9fff">®</sup>
+  </div>
+  <div class="loading-bar-track"><div class="loading-bar"></div></div>
+  <div class="loading-text" id="loadingMsg">CARGANDO DATOS...</div>
+</div>
+
+<div id="error-banner">⚠ ERROR AL CARGAR — <span id="error-detail"></span>
+  <button onclick="loadData()" style="margin-left:16px;padding:4px 12px;background:#d63031;color:#fff;border:none;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:11px;">REINTENTAR</button>
+</div>
+
+<header>
+  <div class="logo-block">
+    <div>
+      <div class="logo-text" id="headerTitle">GLOBALTY® — MULTIPLANTA</div>
+      <div class="logo-sub" id="headerSub">Dashboard Operativo · Tolcayuca · Glama · Desa</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="filter-group">
+      <span class="filter-label">AÑO</span>
+      <select id="filterAnio" onchange="applyFilters()">
+        <option value="2024">2024</option>
+        <option value="2025" selected>2025</option>
+        <option value="2026">2026</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">MES</span>
+      <select id="filterMes" onchange="applyFilters()">
+        <option value="all">Todos</option>
+        <option value="1">Enero</option><option value="2">Febrero</option>
+        <option value="3">Marzo</option><option value="4">Abril</option>
+        <option value="5">Mayo</option><option value="6">Junio</option>
+        <option value="7">Julio</option><option value="8">Agosto</option>
+        <option value="9">Septiembre</option><option value="10">Octubre</option>
+        <option value="11">Noviembre</option><option value="12">Diciembre</option>
+      </select>
+    </div>
+    <div class="status-pill"><div class="status-dot"></div><span id="lastUpdate">CONECTANDO...</span></div>
+  </div>
+</header>
+
+<div class="periodo-banner" id="periodoBanner" style="display:none;">
+  <div class="periodo-item"><div class="periodo-label">PERÍODO</div><div class="periodo-val" id="pBanner">—</div></div>
+  <div class="periodo-sep"></div>
+  <div class="periodo-item"><div class="periodo-label">CORTE</div><div class="periodo-val" id="pCorte">—</div></div>
+  <div class="periodo-sep"></div>
+  <div class="periodo-item"><div class="periodo-label">ÚLTIMA CARGA</div><div class="periodo-val" id="pCarga">—</div></div>
+</div>
+
+<main id="mainContent">
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('resumen')">🏭 Resumen Multiplanta</button>
+    <button class="tab-btn" onclick="switchTab('sk')">📦 Skarton (SK)</button>
+    <button class="tab-btn" onclick="switchTab('glama')">🟦 Glama</button>
+    <button class="tab-btn" onclick="switchTab('desa')">🟧 Desa</button>
+    <button class="tab-btn" onclick="switchTab('devoluciones')">↩️ Devoluciones</button>
+    <button class="tab-btn" onclick="switchTab('diario')">📅 Detalle Diario</button>
+  </div>
+
+  <!-- TAB RESUMEN -->
+  <div id="tab-resumen" class="tab-panel active">
+    <div class="section-title">KPIs Consolidados — Todas las Plantas</div>
+    <div class="kpi-grid" id="kpiResumen"></div>
+    <div class="section-title">Comparativo por Planta</div>
+    <div class="plantas-grid" id="plantasCards"></div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Tons Embarcadas por Planta — Acumulado <span class="chart-tag">BARRAS</span></div>
+        <canvas id="chartResumenTons"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Participación Tons Embarcadas <span class="chart-tag">DONA</span></div>
+        <canvas id="chartResumenPart"></canvas>
+      </div>
+    </div>
+    <div class="charts-grid-2">
+      <div class="chart-card">
+        <div class="chart-title">% Merma Trim por Planta <span class="chart-tag">BARRAS</span></div>
+        <canvas id="chartResumenMermaTrim"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">% Merma Proceso por Planta <span class="chart-tag">BARRAS</span></div>
+        <canvas id="chartResumenMermaProc"></canvas>
+      </div>
+    </div>
+    <div class="chart-card" style="margin-bottom:22px;">
+      <div class="chart-title">Pareto — Devoluciones por Responsable (Todas las Plantas) <span class="chart-tag">PARETO</span></div>
+      <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin-bottom:12px;">📌 Regla 80/20 — Los departamentos a la izquierda de la línea roja son los vitales a atacar.</div>
+      <canvas id="chartPareto" style="max-height:280px;"></canvas>
+    </div>
+    <div class="table-card">
+      <div class="table-header">Detalle por Planta</div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr>
+            <th>Planta</th><th>Tons Emb.</th><th>Tons Prod.</th><th>m²</th>
+            <th>Merma Trim kg</th><th>Merma Proc kg</th>
+            <th>% Trim</th><th>% Proceso</th>
+            <th>Días Prod.</th><th>Devol.</th><th>Kg Dev.</th>
+          </tr></thead>
+          <tbody id="tablaResumen"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB SKARTON -->
+  <div id="tab-sk" class="tab-panel">
+    <div class="section-title">📦 Skarton Planta Tolcayuca — Producción</div>
+    <div class="kpi-grid" id="kpiSK"></div>
+    <div class="section-title">Merma — Skarton</div>
+    <div class="kpi-grid" id="kpiMermaSK"></div>
+    <div class="comp-grid" id="compSK"></div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Tons Embarcadas — Acumulado diario <span class="chart-tag">LÍNEA</span></div>
+        <canvas id="chartAcumSK"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Avance vs Meta <span class="chart-tag">DONA</span></div>
+        <canvas id="chartMetaSK"></canvas>
+      </div>
+    </div>
+    <div class="charts-grid-2">
+      <div class="chart-card">
+        <div class="chart-title">% Merma Trim — Acumulado <span class="chart-tag">ÁREA</span></div>
+        <canvas id="chartMermaTrimSK"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">% Merma Proceso — Acumulado <span class="chart-tag">ÁREA</span></div>
+        <canvas id="chartMermaProcSK"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB GLAMA -->
+  <div id="tab-glama" class="tab-panel">
+    <div class="section-title">🟦 Glama — Producción</div>
+    <div class="kpi-grid" id="kpiGlama"></div>
+    <div class="section-title">Merma — Glama</div>
+    <div class="kpi-grid" id="kpiMermaGlama"></div>
+    <div class="comp-grid" id="compGlama"></div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Tons Embarcadas — Acumulado diario <span class="chart-tag">LÍNEA</span></div>
+        <canvas id="chartAcumGlama"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Avance vs Meta <span class="chart-tag">DONA</span></div>
+        <canvas id="chartMetaGlama"></canvas>
+      </div>
+    </div>
+    <div class="charts-grid-2">
+      <div class="chart-card">
+        <div class="chart-title">% Merma Trim — Acumulado <span class="chart-tag">ÁREA</span></div>
+        <canvas id="chartMermaTrimGlama"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">% Merma Proceso — Acumulado <span class="chart-tag">ÁREA</span></div>
+        <canvas id="chartMermaProcGlama"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB DESA -->
+  <div id="tab-desa" class="tab-panel">
+    <div class="section-title">🟧 Desa — Producción</div>
+    <div class="kpi-grid" id="kpiDesa"></div>
+    <div class="section-title">Merma — Desa</div>
+    <div class="kpi-grid" id="kpiMermaDesa"></div>
+    <div class="comp-grid" id="compDesa"></div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Tons Embarcadas — Acumulado diario <span class="chart-tag">LÍNEA</span></div>
+        <canvas id="chartAcumDesa"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Avance vs Meta <span class="chart-tag">DONA</span></div>
+        <canvas id="chartMetaDesa"></canvas>
+      </div>
+    </div>
+    <div class="charts-grid-2">
+      <div class="chart-card">
+        <div class="chart-title">% Merma Trim — Acumulado <span class="chart-tag">ÁREA</span></div>
+        <canvas id="chartMermaTrimDesa"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">% Merma Proceso — Acumulado <span class="chart-tag">ÁREA</span></div>
+        <canvas id="chartMermaProcDesa"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB DEVOLUCIONES -->
+  <div id="tab-devoluciones" class="tab-panel">
+    <div class="section-title">Devoluciones — Todas las Plantas</div>
+    <div class="kpi-grid" id="kpiDevol"></div>
+    <div class="charts-grid-2">
+      <div class="chart-card">
+        <div class="chart-title">Por Responsable <span class="chart-tag">DONA</span></div>
+        <canvas id="chartDevolDepto"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Top Clientes — Piezas devueltas <span class="chart-tag">BARRAS</span></div>
+        <canvas id="chartDevolCliente"></canvas>
+      </div>
+    </div>
+    <div class="charts-grid-2">
+      <div class="chart-card">
+        <div class="chart-title">Por Planta <span class="chart-tag">DONA</span></div>
+        <canvas id="chartDevolPlanta"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Devoluciones por Día <span class="chart-tag">BARRAS</span></div>
+        <canvas id="chartDevolDia"></canvas>
+      </div>
+    </div>
+    <div class="table-card">
+      <div class="table-header">Registros del período <span id="totalDevol" style="color:var(--accent);">—</span></div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr>
+            <th>Fecha</th><th>Planta</th><th>Cliente</th><th>Pedido</th>
+            <th>Responsable</th><th>Motivo</th><th>Piezas</th><th>Kilos</th><th>Autoriza</th>
+          </tr></thead>
+          <tbody id="tablaDevoluciones"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB DIARIO -->
+  <div id="tab-diario" class="tab-panel">
+    <div class="filter-group" style="margin-bottom:16px;">
+      <span class="filter-label" style="color:var(--text-dim);">PLANTA</span>
+      <select id="filterPlantaDiario" onchange="applyFilters()" style="background:var(--surface);color:var(--text);border:1px solid var(--border);">
+        <option value="SK">Skarton (SK)</option>
+        <option value="Glama">Glama</option>
+        <option value="Desa">Desa</option>
+      </select>
+    </div>
+    <div class="section-title">Detalle Diario</div>
+    <div class="table-card">
+      <div class="table-header">Producción día a día</div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr>
+            <th>Fecha</th><th>Ton Emb.</th><th>m²</th><th>Ton Prod.</th>
+            <th>Merma Trim</th><th>Merma Proc.</th><th>% Trim</th><th>% Proc.</th>
+            <th>Acum. Emb.</th><th>Observaciones</th>
+          </tr></thead>
+          <tbody id="tablaProduccion"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <span>GLOBALTY® — Dashboard Operativo Multiplanta v4.0 · SK | Glama | Desa</span>
+  <span id="footerTs">—</span>
+</footer>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONFIGURACIÓN — IDs de Google Sheets
+// ═══════════════════════════════════════════════════════════════
+const SHEET_ID = '1G_zCNp3ZMUkc2TF1eAopTDnGC07d8p_zOFUaiKcvelY';
+
+// GIDs por hoja
+const GIDS = {
+  METAS_SK:         '665457450',
+  METAS_DESA:       '1539873577',
+  METAS_GLAMA:      '2048442909',
+  DATOS_SK:         '155038377',
+  DATOS_DESA:       '1900534310',
+  DATOS_GLAMA:      '841609817',
+  DEVOL_SK:         '1860806703',
+  DEVOL_DESA:       '681054920',
+  DEVOL_GLAMA:      '1600021053',
+};
+
+// Metas fijas de merma
+const META_TRIM_PCT = 3.5;
+const META_PROC_PCT = 10.5;
+
+const MESES = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const PLANTAS = ['SK','Glama','Desa'];
+const PLANTA_LABELS = { SK:'Skarton', Glama:'Glama', Desa:'Desa' };
+const PLANTA_COLORS = { SK:'#0066cc', Glama:'#00cc88', Desa:'#ff6b35' };
+
+const CHARTS = {};
+let DATA = { SK:{}, Glama:{}, Desa:{} };
+let METAS = { SK:[], Glama:[], Desa:[] };
+let DEVOLUCIONES = { SK:[], Glama:[], Desa:[] };
+
+const hoy = new Date();
+const mesActual  = hoy.getMonth() + 1;
+const anioActual = hoy.getFullYear();
+const diaCorte   = hoy.getDate();
+
+// ═══════════════════════════════════════════════════════════════
+// CSV FETCH & PARSE
+// ═══════════════════════════════════════════════════════════════
+function csvUrl(gid) {
+  return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
+}
+
+async function fetchCSV(gid) {
+  const r = await fetch(csvUrl(gid));
+  if (!r.ok) throw new Error(`HTTP ${r.status} GID=${gid}`);
+  return r.text();
+}
+
+function parseCSV(txt) {
+  const lines = txt.trim().split('\n');
+  const result = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = splitCSVLine(lines[i]);
+    result.push(cols.map(v => v.replace(/^"|"$/g,'').trim()));
+  }
+  return result;
+}
+
+function splitCSVLine(line) {
+  const res = [];
+  let cur = '', inQ = false;
+  for (const ch of line) {
+    if (ch === '"') inQ = !inQ;
+    else if (ch === ',' && !inQ) { res.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  res.push(cur);
+  return res;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DATE PARSE — robusta M/D/YYYY y D/M/YYYY
+// ═══════════════════════════════════════════════════════════════
+function parseDate(v) {
+  if (!v) return null;
+  const s = String(v).trim();
+
+  // Formato ISO yyyy-mm-dd
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const d = new Date(s);
+    return isNaN(d) ? null : d;
+  }
+
+  const p = s.split('/');
+  if (p.length === 3) {
+    let [a, b, c] = p.map(Number);
+    const yr = c > 100 ? c : 2000 + c;
+    // Si primer número > 12 → DD/MM/YYYY
+    if (a > 12) { const d = new Date(yr, b-1, a); return isNaN(d)?null:d; }
+    // Si segundo número > 12 → MM/DD/YYYY (Google Sheets CSV export)
+    if (b > 12) { const d = new Date(yr, a-1, b); return isNaN(d)?null:d; }
+    // Ambos ≤ 12: intentamos MM/DD/YYYY (más común en CSV de Sheets en inglés)
+    const d1 = new Date(yr, a-1, b);
+    return isNaN(d1) ? null : d1;
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PARSERS DE DATOS
+// Estructura datos diarios (imagen 2):
+// Col 0: Fecha  1: Ton embarcado  2: m² producidos  3: Ton producidos
+// Col 4: Merma trim  5: Merma pagada  6: Merma proceso  7: Observaciones
+// ═══════════════════════════════════════════════════════════════
+function parseDatos(rows) {
+  const result = [];
+  for (const c of rows) {
+    if (!c[0]) continue;
+    const fecha = parseDate(c[0]);
+    if (!fecha) continue;
+    result.push({
+      fecha,
+      anio:      fecha.getFullYear(),
+      mes:       fecha.getMonth() + 1,
+      dia:       fecha.getDate(),
+      tonEmb:    parseNum(c[1]),
+      m2:        parseNum(c[2]),
+      tonProd:   parseNum(c[3]),
+      mermaTrim: parseNum(c[4]),
+      mermaPagada: parseNum(c[5]),
+      mermaProc: parseNum(c[6]),
+      obs:       c[7] || ''
+    });
+  }
+  return result;
+}
+
+// Estructura devoluciones (imagen 3):
+// Col 0: Fecha  1: Planta  2: Cliente  3: Pedido  4: Piezas  5: Kilos
+// Col 6: Implicado  7: Motivo  8: Autoriza  9: Costos asociados
+function parseDevoluciones(rows, plantaDefault) {
+  const result = [];
+  for (const c of rows) {
+    if (!c[0]) continue;
+    const fecha = parseDate(c[0]);
+    if (!fecha) continue;
+    result.push({
+      fecha,
+      anio:        fecha.getFullYear(),
+      mes:         fecha.getMonth() + 1,
+      dia:         fecha.getDate(),
+      planta:      c[1] || plantaDefault,
+      cliente:     c[2] || '',
+      pedido:      c[3] || '',
+      piezas:      parseNum(c[4]),
+      kilos:       parseNum(c[5]),
+      responsable: c[6] || '',
+      motivo:      c[7] || '',
+      autoriza:    c[8] || '',
+      costos:      parseNum(c[9])
+    });
+  }
+  return result;
+}
+
+// Estructura metas (imagen 1):
+// Col 0: Mes  1: Tons Embarcadas  2: m² Producidos  3: Merma Máxima %  4: Días Laborables
+function parseMetas(rows) {
+  const mesMap = {enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,octubre:10,noviembre:11,diciembre:12};
+  const result = [];
+  for (const c of rows) {
+    if (!c[0]) continue;
+    const mesStr = String(c[0]).toLowerCase().trim();
+    const mesNum = mesMap[mesStr];
+    if (!mesNum) continue;
+    const mermaRaw = String(c[3]||'').replace('%','').trim();
+    const mermaNum = parseFloat(mermaRaw);
+    result.push({
+      mes:       mesNum,
+      metaTons:  parseNum(c[1]),
+      metaM2:    parseNum(c[2]),
+      metaMerma: isNaN(mermaNum) ? 0.105 : (mermaNum > 1 ? mermaNum/100 : mermaNum),
+      diasLab:   parseNum(c[4])
+    });
+  }
+  return result;
+}
+
+function parseNum(v) {
+  if (v === undefined || v === null || v === '') return 0;
+  return parseFloat(String(v).replace(/,/g,'')) || 0;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CARGA DE DATOS
+// ═══════════════════════════════════════════════════════════════
+async function loadData() {
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('error-banner').style.display = 'none';
+  document.getElementById('loadingMsg').textContent = 'CARGANDO DATOS...';
+
+  try {
+    document.getElementById('loadingMsg').textContent = 'CONECTANDO A GOOGLE SHEETS...';
+
+    const [
+      txtMetaSK, txtMetaGlama, txtMetaDesa,
+      txtDatosSK, txtDatosGlama, txtDatosDesa,
+      txtDevolSK, txtDevolGlama, txtDevolDesa
+    ] = await Promise.all([
+      fetchCSV(GIDS.METAS_SK),
+      fetchCSV(GIDS.METAS_GLAMA),
+      fetchCSV(GIDS.METAS_DESA),
+      fetchCSV(GIDS.DATOS_SK),
+      fetchCSV(GIDS.DATOS_GLAMA),
+      fetchCSV(GIDS.DATOS_DESA),
+      fetchCSV(GIDS.DEVOL_SK),
+      fetchCSV(GIDS.DEVOL_GLAMA),
+      fetchCSV(GIDS.DEVOL_DESA)
+    ]);
+
+    document.getElementById('loadingMsg').textContent = 'PROCESANDO...';
+
+    METAS.SK    = parseMetas(parseCSV(txtMetaSK));
+    METAS.Glama = parseMetas(parseCSV(txtMetaGlama));
+    METAS.Desa  = parseMetas(parseCSV(txtMetaDesa));
+
+    DATA.SK    = parseDatos(parseCSV(txtDatosSK));
+    DATA.Glama = parseDatos(parseCSV(txtDatosGlama));
+    DATA.Desa  = parseDatos(parseCSV(txtDatosDesa));
+
+    DEVOLUCIONES.SK    = parseDevoluciones(parseCSV(txtDevolSK),    'SK');
+    DEVOLUCIONES.Glama = parseDevoluciones(parseCSV(txtDevolGlama), 'Glama');
+    DEVOLUCIONES.Desa  = parseDevoluciones(parseCSV(txtDevolDesa),  'Desa');
+
+    // Setear filtros al mes/año actual
+    document.getElementById('filterAnio').value = anioActual.toString();
+    document.getElementById('filterMes').value  = mesActual.toString();
+
+    await new Promise(r => setTimeout(r, 800));
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+    document.getElementById('periodoBanner').style.display = 'flex';
+
+    const now = new Date();
+    document.getElementById('lastUpdate').textContent = `ACTUALIZADO ${now.toLocaleTimeString('es-MX')}`;
+    document.getElementById('pCarga').textContent     = now.toLocaleString('es-MX');
+    document.getElementById('footerTs').textContent   = `FETCH: ${now.toLocaleString('es-MX')}`;
+
+    applyFilters();
+  } catch(e) {
+    console.error(e);
+    document.getElementById('loading').style.display = 'none';
+    const eb = document.getElementById('error-banner');
+    eb.style.display = 'block';
+    document.getElementById('error-detail').textContent = e.message;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FILTROS Y RENDER PRINCIPAL
+// ═══════════════════════════════════════════════════════════════
+function applyFilters() {
+  const anio   = parseInt(document.getElementById('filterAnio').value);
+  const mesVal = document.getElementById('filterMes').value;
+  const mesAll = mesVal === 'all';
+  const mes    = mesAll ? mesActual : parseInt(mesVal);
+  const esActual = !mesAll && (anio === anioActual && mes === mesActual);
+  const corte    = esActual ? diaCorte : 31;
+
+  document.getElementById('pBanner').textContent = mesAll ? `Todo ${anio}` : `${MESES[mes]} ${anio}`;
+  document.getElementById('pCorte').textContent  = mesAll ? 'Año completo' : `Día ${corte}${esActual?' (hoy)':''}`;
+
+  // Filtrar datos por planta
+  const filtrar = (arr) => arr.filter(r =>
+    r.anio === anio && (mesAll || (r.mes === mes && r.dia <= corte))
+  );
+
+  const filtered = {
+    SK:    filtrar(DATA.SK),
+    Glama: filtrar(DATA.Glama),
+    Desa:  filtrar(DATA.Desa)
+  };
+
+  const filtrarDev = (arr) => arr.filter(r =>
+    r.anio === anio && (mesAll || (r.mes === mes && r.dia <= corte))
+  );
+
+  const filteredDev = {
+    SK:    filtrarDev(DEVOLUCIONES.SK),
+    Glama: filtrarDev(DEVOLUCIONES.Glama),
+    Desa:  filtrarDev(DEVOLUCIONES.Desa)
+  };
+
+  const getMeta = (planta) =>
+    METAS[planta].find(m => m.mes === mes) ||
+    { metaTons:0, metaM2:0, metaMerma:0.105, diasLab:0 };
+
+  const metas = {
+    SK:    getMeta('SK'),
+    Glama: getMeta('Glama'),
+    Desa:  getMeta('Desa')
+  };
+
+  // Renderizar
+  renderResumen(filtered, filteredDev, metas);
+  renderPlanta('SK',    filtered.SK,    filteredDev.SK,    metas.SK,    filtered, mes, anio);
+  renderPlanta('Glama', filtered.Glama, filteredDev.Glama, metas.Glama, filtered, mes, anio);
+  renderPlanta('Desa',  filtered.Desa,  filteredDev.Desa,  metas.Desa,  filtered, mes, anio);
+  renderDevoluciones(filteredDev);
+  renderTablaDiario(mes, anio, corte);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+const sum  = (arr, k) => arr.reduce((a,r) => a+(r[k]||0), 0);
+const fmt  = (n, d=0) => isNaN(n)||n===null ? '—' : n.toLocaleString('es-MX',{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtD = d => d instanceof Date ? d.toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
+const pct  = (a,b) => b>0 ? a/b*100 : 0;
+
+function calcStats(arr) {
+  const tonEmb    = sum(arr,'tonEmb');
+  const tonProd   = sum(arr,'tonProd');
+  const m2        = sum(arr,'m2');
+  const mermaTrim = sum(arr,'mermaTrim');
+  const mermaProc = sum(arr,'mermaProc');
+  const diasProd  = arr.filter(r=>r.tonProd>0).length;
+  const pctTrim   = tonProd>0 ? mermaTrim/tonProd*100 : 0;
+  const pctProc   = tonProd>0 ? mermaProc/tonProd*100 : 0;
+  return { tonEmb, tonProd, m2, mermaTrim, mermaProc, diasProd, pctTrim, pctProc };
+}
+
+function delta(now, prev) {
+  if (!prev || prev===0) return { txt:'—', cls:'neu' };
+  const d = (now-prev)/Math.abs(prev)*100;
+  return { txt:`${d>=0?'▲':'▼'} ${Math.abs(d).toFixed(1)}%`, cls: d>=0?'pos':'neg' };
+}
+
+function deltaInv(now, prev) {
+  // Invertido: bajar es bueno (para merma/devoluciones)
+  if (!prev || prev===0) return { txt:'—', cls:'neu' };
+  const d = (now-prev)/Math.abs(prev)*100;
+  return { txt:`${d>=0?'▲':'▼'} ${Math.abs(d).toFixed(1)}%`, cls: d<=0?'pos':'neg' };
+}
+
+function chipM(val, meta) {
+  if (val <= meta) return 'chip-ok';
+  if (val <= meta * 1.2) return 'chip-warn';
+  return 'chip-bad';
+}
+
+function destroyChart(id) {
+  if (CHARTS[id]) { CHARTS[id].destroy(); delete CHARTS[id]; }
+}
+
+function chartOpts(unit='') {
+  return {
+    responsive:true,
+    interaction:{ mode:'index', intersect:false },
+    plugins:{
+      legend:{ labels:{ color:'#8892a4', font:{ family:'IBM Plex Mono', size:10 }, boxWidth:10 } },
+      tooltip:{
+        backgroundColor:'#ffffff', borderColor:'#dde1ea', borderWidth:1,
+        titleColor:'#1a1f2e', bodyColor:'#4a5568',
+        titleFont:{ family:'IBM Plex Mono' }, bodyFont:{ family:'IBM Plex Mono', size:10 }
+      }
+    },
+    scales:{
+      x:{ ticks:{ color:'#5a6070', font:{ family:'IBM Plex Mono', size:9 } }, grid:{ color:'rgba(180,190,210,0.4)' } },
+      y:{ ticks:{ color:'#5a6070', font:{ family:'IBM Plex Mono', size:9 } }, grid:{ color:'rgba(180,190,210,0.4)' } }
+    }
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER RESUMEN MULTIPLANTA
+// ═══════════════════════════════════════════════════════════════
+function renderResumen(filtered, filteredDev, metas) {
+  const stats = {};
+  PLANTAS.forEach(p => { stats[p] = calcStats(filtered[p]); });
+
+  const total = {
+    tonEmb:    PLANTAS.reduce((a,p)=>a+stats[p].tonEmb,0),
+    tonProd:   PLANTAS.reduce((a,p)=>a+stats[p].tonProd,0),
+    m2:        PLANTAS.reduce((a,p)=>a+stats[p].m2,0),
+    mermaTrim: PLANTAS.reduce((a,p)=>a+stats[p].mermaTrim,0),
+    mermaProc: PLANTAS.reduce((a,p)=>a+stats[p].mermaProc,0),
+    devCount:  PLANTAS.reduce((a,p)=>a+filteredDev[p].length,0),
+    devKilos:  PLANTAS.reduce((a,p)=>a+sum(filteredDev[p],'kilos'),0),
+  };
+  total.pctTrim = total.tonProd>0 ? total.mermaTrim/total.tonProd*100 : 0;
+  total.pctProc = total.tonProd>0 ? total.mermaProc/total.tonProd*100 : 0;
+
+  // KPIs totales
+  document.getElementById('kpiResumen').innerHTML = `
+    <div class="kpi-card blue">
+      <div class="kpi-label">Tons Embarcadas — TOTAL</div>
+      <div class="kpi-value">${fmt(total.tonEmb)}</div>
+      <div class="kpi-unit">kg acumulados 3 plantas</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">Tons Producidas — TOTAL</div>
+      <div class="kpi-value">${fmt(total.tonProd)}</div>
+      <div class="kpi-unit">kg producidos 3 plantas</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">m² Producidos — TOTAL</div>
+      <div class="kpi-value">${fmt(total.m2,0)}</div>
+      <div class="kpi-unit">m² 3 plantas</div>
+    </div>
+    <div class="kpi-card ${total.pctTrim<=META_TRIM_PCT?'green':'danger'}">
+      <div class="kpi-label">% Merma Trim — TOTAL</div>
+      <div class="kpi-value">${fmt(total.pctTrim,2)}</div>
+      <div class="kpi-unit">% — meta ≤${META_TRIM_PCT}%</div>
+      <div class="progress-track"><div class="progress-fill ${total.pctTrim<=META_TRIM_PCT?'green':'danger'}" style="width:${Math.min(pct(total.pctTrim,META_TRIM_PCT),150)}%"></div></div>
+    </div>
+    <div class="kpi-card ${total.pctProc<=META_PROC_PCT?'green':'danger'}">
+      <div class="kpi-label">% Merma Proceso — TOTAL</div>
+      <div class="kpi-value">${fmt(total.pctProc,2)}</div>
+      <div class="kpi-unit">% — meta ≤${META_PROC_PCT}%</div>
+      <div class="progress-track"><div class="progress-fill ${total.pctProc<=META_PROC_PCT?'green':'danger'}" style="width:${Math.min(pct(total.pctProc,META_PROC_PCT),150)}%"></div></div>
+    </div>
+    <div class="kpi-card danger">
+      <div class="kpi-label">Devoluciones — TOTAL</div>
+      <div class="kpi-value">${total.devCount}</div>
+      <div class="kpi-unit">${fmt(total.devKilos,0)} kg devueltos</div>
+    </div>`;
+
+  // Cards por planta
+  document.getElementById('plantasCards').innerHTML = PLANTAS.map(p => {
+    const s = stats[p];
+    const m = metas[p];
+    const avance = m.metaTons>0 ? pct(s.tonEmb,m.metaTons) : 0;
+    const dv = filteredDev[p];
+    return `<div class="planta-card" style="border-top:3px solid ${PLANTA_COLORS[p]}">
+      <div class="planta-card-title" style="color:${PLANTA_COLORS[p]}">${PLANTA_LABELS[p]}</div>
+      <div class="planta-stat"><span class="planta-stat-label">Tons Embarcadas</span><span class="planta-stat-val">${fmt(s.tonEmb)} kg</span></div>
+      <div class="planta-stat"><span class="planta-stat-label">Tons Producidas</span><span class="planta-stat-val">${fmt(s.tonProd)} kg</span></div>
+      <div class="planta-stat"><span class="planta-stat-label">m² Producidos</span><span class="planta-stat-val">${fmt(s.m2,0)}</span></div>
+      <div class="planta-stat"><span class="planta-stat-label">Avance vs Meta</span><span class="planta-stat-val ${avance>=100?'up':avance>=75?'neutral':'down'}">${fmt(avance,1)}% (meta ${fmt(m.metaTons)} kg)</span></div>
+      <div class="planta-stat"><span class="planta-stat-label">% Merma Trim</span><span class="planta-stat-val"><span class="chip ${chipM(s.pctTrim,META_TRIM_PCT)}">${fmt(s.pctTrim,2)}%</span></span></div>
+      <div class="planta-stat"><span class="planta-stat-label">% Merma Proceso</span><span class="planta-stat-val"><span class="chip ${chipM(s.pctProc,META_PROC_PCT)}">${fmt(s.pctProc,2)}%</span></span></div>
+      <div class="planta-stat"><span class="planta-stat-label">Devoluciones</span><span class="planta-stat-val dng">${dv.length} (${fmt(sum(dv,'kilos'),0)} kg)</span></div>
+      <div class="planta-stat"><span class="planta-stat-label">Días Productivos</span><span class="planta-stat-val">${s.diasProd} días</span></div>
+    </div>`;
+  }).join('');
+
+  // Charts resumen
+  destroyChart('chartResumenTons');
+  CHARTS.chartResumenTons = new Chart(document.getElementById('chartResumenTons'),{
+    type:'bar',
+    data:{
+      labels: PLANTAS.map(p=>PLANTA_LABELS[p]),
+      datasets:[
+        { label:'Tons Embarcadas', data:PLANTAS.map(p=>stats[p].tonEmb), backgroundColor:PLANTAS.map(p=>PLANTA_COLORS[p]+'bb'), borderColor:PLANTAS.map(p=>PLANTA_COLORS[p]), borderWidth:2 },
+        { label:'Meta',            data:PLANTAS.map(p=>metas[p].metaTons), type:'scatter',
+          backgroundColor:PLANTAS.map(()=>'#d63031'), pointStyle:'line', pointRadius:12, pointBorderWidth:3, borderColor:'transparent' }
+      ]
+    },
+    options: chartOpts('kg')
+  });
+
+  destroyChart('chartResumenPart');
+  CHARTS.chartResumenPart = new Chart(document.getElementById('chartResumenPart'),{
+    type:'doughnut',
+    data:{
+      labels: PLANTAS.map(p=>PLANTA_LABELS[p]),
+      datasets:[{ data:PLANTAS.map(p=>stats[p].tonEmb), backgroundColor:PLANTAS.map(p=>PLANTA_COLORS[p]), borderColor:'#fff', borderWidth:2 }]
+    },
+    options:{ responsive:true, plugins:{ legend:{ position:'bottom', labels:{ color:'#4a5568', font:{family:'IBM Plex Mono',size:10}, boxWidth:12 } } } }
+  });
+
+  destroyChart('chartResumenMermaTrim');
+  CHARTS.chartResumenMermaTrim = new Chart(document.getElementById('chartResumenMermaTrim'),{
+    type:'bar',
+    data:{
+      labels: PLANTAS.map(p=>PLANTA_LABELS[p]),
+      datasets:[
+        { label:'% Trim', data:PLANTAS.map(p=>stats[p].pctTrim), backgroundColor:PLANTAS.map(p=>PLANTA_COLORS[p]+'bb'), borderColor:PLANTAS.map(p=>PLANTA_COLORS[p]), borderWidth:2 },
+        { label:`Meta ${META_TRIM_PCT}%`, data:PLANTAS.map(()=>META_TRIM_PCT), type:'line', borderColor:'#d63031', borderDash:[5,5], pointRadius:0, borderWidth:2 }
+      ]
+    },
+    options: chartOpts('%')
+  });
+
+  destroyChart('chartResumenMermaProc');
+  CHARTS.chartResumenMermaProc = new Chart(document.getElementById('chartResumenMermaProc'),{
+    type:'bar',
+    data:{
+      labels: PLANTAS.map(p=>PLANTA_LABELS[p]),
+      datasets:[
+        { label:'% Proceso', data:PLANTAS.map(p=>stats[p].pctProc), backgroundColor:PLANTAS.map(p=>PLANTA_COLORS[p]+'bb'), borderColor:PLANTAS.map(p=>PLANTA_COLORS[p]), borderWidth:2 },
+        { label:`Meta ${META_PROC_PCT}%`, data:PLANTAS.map(()=>META_PROC_PCT), type:'line', borderColor:'#d63031', borderDash:[5,5], pointRadius:0, borderWidth:2 }
+      ]
+    },
+    options: chartOpts('%')
+  });
+
+  // Pareto devoluciones todas las plantas
+  renderPareto([...filteredDev.SK,...filteredDev.Glama,...filteredDev.Desa]);
+
+  // Tabla resumen
+  document.getElementById('tablaResumen').innerHTML = PLANTAS.map(p => {
+    const s  = stats[p];
+    const dv = filteredDev[p];
+    return `<tr>
+      <td class="hl" style="font-weight:700;color:${PLANTA_COLORS[p]}">${PLANTA_LABELS[p]}</td>
+      <td class="acc">${fmt(s.tonEmb)}</td><td>${fmt(s.tonProd)}</td><td>${fmt(s.m2,0)}</td>
+      <td>${fmt(s.mermaTrim,0)}</td><td>${fmt(s.mermaProc,0)}</td>
+      <td><span class="chip ${chipM(s.pctTrim,META_TRIM_PCT)}">${fmt(s.pctTrim,2)}%</span></td>
+      <td><span class="chip ${chipM(s.pctProc,META_PROC_PCT)}">${fmt(s.pctProc,2)}%</span></td>
+      <td>${s.diasProd}</td>
+      <td class="dng">${dv.length}</td>
+      <td class="wrn">${fmt(sum(dv,'kilos'),0)}</td>
+    </tr>`;
+  }).join('') + `<tr style="border-top:2px solid var(--border);background:var(--surface2);">
+    <td class="hl" style="font-weight:800;color:var(--accent3)">TOTAL</td>
+    <td class="acc" style="font-weight:700">${fmt(total.tonEmb)}</td>
+    <td style="font-weight:700">${fmt(total.tonProd)}</td>
+    <td style="font-weight:700">${fmt(total.m2,0)}</td>
+    <td style="font-weight:700">${fmt(total.mermaTrim,0)}</td>
+    <td style="font-weight:700">${fmt(total.mermaProc,0)}</td>
+    <td><span class="chip ${chipM(total.pctTrim,META_TRIM_PCT)}">${fmt(total.pctTrim,2)}%</span></td>
+    <td><span class="chip ${chipM(total.pctProc,META_PROC_PCT)}">${fmt(total.pctProc,2)}%</span></td>
+    <td>—</td>
+    <td class="dng" style="font-weight:700">${total.devCount}</td>
+    <td class="wrn" style="font-weight:700">${fmt(total.devKilos,0)}</td>
+  </tr>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PARETO
+// ═══════════════════════════════════════════════════════════════
+function renderPareto(allDev) {
+  destroyChart('chartPareto');
+  const el = document.getElementById('chartPareto');
+  if (!el) return;
+
+  const by = {};
+  allDev.forEach(r => {
+    const k = r.responsable || 'Sin definir';
+    if (!by[k]) by[k] = 0;
+    by[k]++;
+  });
+
+  const sorted = Object.entries(by).sort((a,b)=>b[1]-a[1]);
+  const labels = sorted.map(e=>e[0]);
+  const values = sorted.map(e=>e[1]);
+  const total  = values.reduce((a,v)=>a+v,0);
+
+  let cum=0;
+  const cumPct = values.map(v => { cum+=v; return total>0 ? parseFloat((cum/total*100).toFixed(1)) : 0; });
+
+  let runSum=0;
+  const barColors = values.map(v => {
+    runSum+=v;
+    return (runSum/total)<=0.8 ? 'rgba(214,48,49,0.75)' : 'rgba(180,180,180,0.4)';
+  });
+
+  CHARTS.chartPareto = new Chart(el, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        { label:'Devoluciones', data:values, backgroundColor:barColors, borderColor:barColors.map(c=>c.replace('0.75','1').replace('0.4','0.7')), borderWidth:1, yAxisID:'y' },
+        { label:'% Acumulado',  data:cumPct, type:'line', borderColor:'#0066cc', backgroundColor:'transparent', borderWidth:2.5, pointRadius:5, pointBackgroundColor:'#0066cc', tension:0, yAxisID:'y2' },
+        { label:'Línea 80%',    data:labels.map(()=>80), type:'line', borderColor:'#ff4757', borderWidth:1.5, borderDash:[6,4], pointRadius:0, yAxisID:'y2' }
+      ]
+    },
+    options:{
+      responsive:true,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{
+        legend:{ labels:{ color:'#4a5568', font:{family:'IBM Plex Mono',size:10}, boxWidth:12 } },
+        tooltip:{ backgroundColor:'#fff', borderColor:'#dde1ea', borderWidth:1, titleColor:'#1a1f2e', bodyColor:'#4a5568', titleFont:{family:'IBM Plex Mono'}, bodyFont:{family:'IBM Plex Mono',size:10} }
+      },
+      scales:{
+        x:{ ticks:{ color:'#5a6070', font:{family:'IBM Plex Mono',size:10} }, grid:{color:'rgba(180,190,210,0.3)'} },
+        y:{ position:'left', title:{display:true,text:'# Devoluciones',color:'#7a8299',font:{family:'IBM Plex Mono',size:10}}, ticks:{color:'#5a6070',font:{family:'IBM Plex Mono',size:10}}, grid:{color:'rgba(180,190,210,0.3)'} },
+        y2:{ position:'right', min:0, max:100, title:{display:true,text:'% Acumulado',color:'#0066cc',font:{family:'IBM Plex Mono',size:10}}, ticks:{color:'#0066cc',font:{family:'IBM Plex Mono',size:10},callback:v=>v+'%'}, grid:{display:false} }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER POR PLANTA (SK / Glama / Desa)
+// ═══════════════════════════════════════════════════════════════
+function renderPlanta(planta, datos, devol, meta, allFiltered, mes, anio) {
+  const s  = calcStats(datos);
+  const id = planta === 'SK' ? 'SK' : planta;
+
+  // Mes anterior para comparativo
+  const mesActualNum = mes;
+  const mesPrevNum   = mes===1 ? 12 : mes-1;
+  const anioPrev     = mes===1 ? anio-1 : anio;
+
+  const filtrarMesPrev = (arr) => arr.filter(r =>
+    r.anio===anioPrev && r.mes===mesPrevNum && r.dia<=diaCorte
+  );
+  const datosPrev = filtrarMesPrev(DATA[planta]);
+  const sPrev     = calcStats(datosPrev);
+
+  // KPIs producción
+  const avance = meta.metaTons>0 ? pct(s.tonEmb,meta.metaTons) : 0;
+  document.getElementById(`kpi${id}`).innerHTML = `
+    <div class="kpi-card ${avance>=90?'green':avance>=70?'warn':'danger'}">
+      <div class="kpi-label">Tons Embarcadas</div>
+      <div class="kpi-value">${fmt(s.tonEmb)}</div>
+      <div class="kpi-unit">kg — meta: ${fmt(meta.metaTons)} kg</div>
+      <div class="progress-track"><div class="progress-fill ${avance>=90?'green':avance>=70?'warn':'danger'}" style="width:${Math.min(avance,100)}%"></div></div>
+      <div class="kpi-meta ${avance>=90?'up':'down'}">${fmt(avance,1)}% de meta mensual</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">Tons Producidas</div>
+      <div class="kpi-value">${fmt(s.tonProd)}</div>
+      <div class="kpi-unit">kg producidos</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">m² Producidos</div>
+      <div class="kpi-value">${fmt(s.m2,0)}</div>
+      <div class="kpi-unit">m²</div>
+    </div>
+    <div class="kpi-card ${s.diasProd/Math.max(datos.length,1)>=0.8?'green':'warn'}">
+      <div class="kpi-label">Días Productivos</div>
+      <div class="kpi-value">${s.diasProd}</div>
+      <div class="kpi-unit">de ${datos.length} días en período</div>
+    </div>`;
+
+  // KPIs merma
+  const dTrim = s.pctTrim - META_TRIM_PCT;
+  const dProc = s.pctProc - META_PROC_PCT;
+  document.getElementById(`kpiMerma${id}`).innerHTML = `
+    <div class="kpi-card ${s.pctTrim<=META_TRIM_PCT?'green':'danger'}">
+      <div class="kpi-label">% Merma Trim</div>
+      <div class="kpi-value">${fmt(s.pctTrim,2)}</div>
+      <div class="kpi-unit">% — meta ≤${META_TRIM_PCT}%</div>
+      <div class="progress-track"><div class="progress-fill ${s.pctTrim<=META_TRIM_PCT?'green':'danger'}" style="width:${Math.min(pct(s.pctTrim,META_TRIM_PCT),150)}%"></div></div>
+      <div class="kpi-meta ${dTrim<=0?'up':'down'}">${dTrim>0?'▲':'▼'} ${fmt(Math.abs(dTrim),2)}pp vs meta</div>
+    </div>
+    <div class="kpi-card ${s.pctProc<=META_PROC_PCT?'green':'danger'}">
+      <div class="kpi-label">% Merma Proceso</div>
+      <div class="kpi-value">${fmt(s.pctProc,2)}</div>
+      <div class="kpi-unit">% — meta ≤${META_PROC_PCT}%</div>
+      <div class="progress-track"><div class="progress-fill ${s.pctProc<=META_PROC_PCT?'green':'danger'}" style="width:${Math.min(pct(s.pctProc,META_PROC_PCT),150)}%"></div></div>
+      <div class="kpi-meta ${dProc<=0?'up':'down'}">${dProc>0?'▲':'▼'} ${fmt(Math.abs(dProc),2)}pp vs meta</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">Merma Trim (kg)</div>
+      <div class="kpi-value">${fmt(s.mermaTrim,0)}</div>
+      <div class="kpi-unit">kg de trim</div>
+    </div>
+    <div class="kpi-card warn">
+      <div class="kpi-label">Merma Proceso (kg)</div>
+      <div class="kpi-value">${fmt(s.mermaProc,0)}</div>
+      <div class="kpi-unit">kg de proceso</div>
+    </div>`;
+
+  // Comparativo mes anterior
+  const dE  = delta(s.tonEmb,  sPrev.tonEmb);
+  const dP  = delta(s.tonProd, sPrev.tonProd);
+  const dM2 = delta(s.m2,      sPrev.m2);
+  const dT  = deltaInv(s.pctTrim, sPrev.pctTrim);
+  const dPr = deltaInv(s.pctProc, sPrev.pctProc);
+
+  const compRow = (label, val, unit, d) => `
+    <div class="comp-row">
+      <span class="comp-metric">${label}</span>
+      <div class="comp-vals">
+        <span class="comp-now">${fmt(val,unit==='%'?2:0)}</span>
+        <span class="comp-prev">${unit}</span>
+        <span class="delta ${d.cls}">${d.txt}</span>
+      </div>
+    </div>`;
+
+  document.getElementById(`comp${id}`).innerHTML = `
+    <div class="comp-card" style="border-color:rgba(0,102,204,0.25)">
+      <div class="comp-title">📌 vs Meta ${MESES[mes]||mes} ${anio}</div>
+      ${compRow('Tons Embarcadas', s.tonEmb, `meta ${fmt(meta.metaTons)} kg`, { txt: fmt(avance,1)+'%', cls: avance>=90?'pos':avance>=70?'neu':'neg' })}
+      ${compRow('m² Producidos',   s.m2,     `meta ${fmt(meta.metaM2,0)} m²`, delta(s.m2, meta.metaM2))}
+    </div>
+    <div class="comp-card" style="border-color:rgba(230,168,23,0.25)">
+      <div class="comp-title">📅 vs ${MESES[mesPrevNum]||mesPrevNum} ${anioPrev}</div>
+      ${compRow('Tons Embarcadas', s.tonEmb,  'kg', dE)}
+      ${compRow('Tons Producidas', s.tonProd, 'kg', dP)}
+      ${compRow('m² Producidos',   s.m2,      'm²', dM2)}
+      ${compRow('% Merma Trim',    s.pctTrim, '%',  dT)}
+      ${compRow('% Merma Proceso', s.pctProc, '%',  dPr)}
+    </div>
+    <div class="comp-card" style="border-color:rgba(214,48,49,0.2)">
+      <div class="comp-title">📊 Devoluciones</div>
+      ${compRow('Total devoluciones', devol.length,       'registros', {txt:'—',cls:'neu'})}
+      ${compRow('Piezas devueltas',   sum(devol,'piezas'),'piezas',    {txt:'—',cls:'neu'})}
+      ${compRow('Kilos devueltos',    sum(devol,'kilos'), 'kg',        {txt:'—',cls:'neu'})}
+    </div>`;
+
+  // Chart acumulado
+  const sortedData = [...datos].sort((a,b)=>a.dia-b.dia);
+  const dias = sortedData.map(r=>`D${r.dia}`);
+  let ac=0;
+  const acums = sortedData.map(r=>{ ac+=r.tonEmb; return ac; });
+
+  destroyChart(`chartAcum${id}`);
+  CHARTS[`chartAcum${id}`] = new Chart(document.getElementById(`chartAcum${id}`),{
+    type:'line',
+    data:{ labels:dias, datasets:[
+      { label:'Tons Emb. Acumulado', data:acums, borderColor:PLANTA_COLORS[planta], backgroundColor:PLANTA_COLORS[planta]+'22', borderWidth:2.5, fill:true, tension:0.3, pointRadius:3 },
+      { label:'Meta Mensual', data:dias.map(()=>meta.metaTons), borderColor:'#d63031', borderDash:[5,5], pointRadius:0, borderWidth:1.5 }
+    ]},
+    options: chartOpts('kg')
+  });
+
+  // Chart meta dona
+  destroyChart(`chartMeta${id}`);
+  CHARTS[`chartMeta${id}`] = new Chart(document.getElementById(`chartMeta${id}`),{
+    type:'doughnut',
+    data:{ labels:['Embarcado','Pendiente'],
+      datasets:[{ data:[s.tonEmb, Math.max(meta.metaTons-s.tonEmb,0)], backgroundColor:[PLANTA_COLORS[planta],'#e8ecf4'], borderColor:[PLANTA_COLORS[planta],'#e8ecf4'], borderWidth:1 }]
+    },
+    options:{ responsive:true, plugins:{ legend:{ position:'bottom', labels:{ color:'#8892a4', font:{family:'IBM Plex Mono',size:10}, boxWidth:10 } },
+      tooltip:{ callbacks:{ label:ctx=>`${ctx.label}: ${fmt(ctx.raw)} kg` } }
+    }}
+  });
+
+  // Chart merma trim acumulado
+  let acTrim=0, acProd=0;
+  const pctTrimAcum = [];
+  sortedData.forEach(r => {
+    acTrim += r.mermaTrim||0;
+    acProd += r.tonProd||0;
+    pctTrimAcum.push(acProd>0 ? acTrim/acProd*100 : 0);
+  });
+
+  destroyChart(`chartMermaTrim${id}`);
+  CHARTS[`chartMermaTrim${id}`] = new Chart(document.getElementById(`chartMermaTrim${id}`),{
+    type:'line',
+    data:{ labels:dias, datasets:[
+      { label:'% Trim acum.', data:pctTrimAcum, borderColor:'#ff6b35', backgroundColor:'rgba(255,107,53,0.1)', borderWidth:2, fill:true, tension:0.3, pointRadius:3 },
+      { label:`Meta ${META_TRIM_PCT}%`, data:dias.map(()=>META_TRIM_PCT), borderColor:'#d63031', borderDash:[5,5], pointRadius:0, borderWidth:1.5 }
+    ]},
+    options: chartOpts('%')
+  });
+
+  // Chart merma proceso acumulado
+  let acProc=0, acProd2=0;
+  const pctProcAcum = [];
+  sortedData.forEach(r => {
+    acProc += r.mermaProc||0;
+    acProd2+= r.tonProd||0;
+    pctProcAcum.push(acProd2>0 ? acProc/acProd2*100 : 0);
+  });
+
+  destroyChart(`chartMermaProc${id}`);
+  CHARTS[`chartMermaProc${id}`] = new Chart(document.getElementById(`chartMermaProc${id}`),{
+    type:'line',
+    data:{ labels:dias, datasets:[
+      { label:'% Proceso acum.', data:pctProcAcum, borderColor:'#d63031', backgroundColor:'rgba(214,48,49,0.1)', borderWidth:2, fill:true, tension:0.3, pointRadius:3 },
+      { label:`Meta ${META_PROC_PCT}%`, data:dias.map(()=>META_PROC_PCT), borderColor:'#ffd166', borderDash:[5,5], pointRadius:0, borderWidth:1.5 }
+    ]},
+    options: chartOpts('%')
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER DEVOLUCIONES
+// ═══════════════════════════════════════════════════════════════
+function renderDevoluciones(filteredDev) {
+  const allDev = [...filteredDev.SK,...filteredDev.Glama,...filteredDev.Desa];
+  const totalCount  = allDev.length;
+  const totalPiezas = sum(allDev,'piezas');
+  const totalKilos  = sum(allDev,'kilos');
+  const clientes    = new Set(allDev.map(r=>r.cliente)).size;
+
+  document.getElementById('kpiDevol').innerHTML = `
+    <div class="kpi-card danger"><div class="kpi-label">Total Devoluciones</div><div class="kpi-value">${totalCount}</div><div class="kpi-unit">registros</div></div>
+    <div class="kpi-card warn"><div class="kpi-label">Piezas Devueltas</div><div class="kpi-value">${fmt(totalPiezas)}</div><div class="kpi-unit">piezas</div></div>
+    <div class="kpi-card orange"><div class="kpi-label">Kilos Devueltos</div><div class="kpi-value">${fmt(totalKilos,0)}</div><div class="kpi-unit">kg</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">Clientes Afectados</div><div class="kpi-value">${clientes}</div><div class="kpi-unit">clientes únicos</div></div>
+    <div class="kpi-card"><div class="kpi-label">SK</div><div class="kpi-value">${filteredDev.SK.length}</div><div class="kpi-unit">${fmt(sum(filteredDev.SK,'kilos'),0)} kg</div></div>
+    <div class="kpi-card"><div class="kpi-label">Glama</div><div class="kpi-value">${filteredDev.Glama.length}</div><div class="kpi-unit">${fmt(sum(filteredDev.Glama,'kilos'),0)} kg</div></div>
+    <div class="kpi-card"><div class="kpi-label">Desa</div><div class="kpi-value">${filteredDev.Desa.length}</div><div class="kpi-unit">${fmt(sum(filteredDev.Desa,'kilos'),0)} kg</div></div>`;
+
+  document.getElementById('totalDevol').textContent = `${totalCount} registros`;
+
+  // Chart por responsable
+  const byResp = {};
+  allDev.forEach(r=>{ byResp[r.responsable||'N/D']=(byResp[r.responsable||'N/D']||0)+1; });
+  const sortedResp = Object.entries(byResp).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const colorsD = ['#ff4757','#ff6b35','#ffd166','#4d9fff','#00e5a0','#a855f7','#06b6d4','#f43f5e'];
+
+  destroyChart('chartDevolDepto');
+  CHARTS.chartDevolDepto = new Chart(document.getElementById('chartDevolDepto'),{
+    type:'doughnut',
+    data:{ labels:sortedResp.map(e=>e[0]), datasets:[{ data:sortedResp.map(e=>e[1]), backgroundColor:colorsD, borderColor:'#fff', borderWidth:2 }] },
+    options:{ responsive:true, plugins:{ legend:{ position:'bottom', labels:{ color:'#8892a4', font:{family:'IBM Plex Mono',size:9}, boxWidth:10, padding:8 } } } }
+  });
+
+  // Chart por cliente (top 10 piezas)
+  const byCliente = {};
+  allDev.forEach(r=>{ byCliente[r.cliente]=(byCliente[r.cliente]||0)+r.piezas; });
+  const sortedCliente = Object.entries(byCliente).sort((a,b)=>b[1]-a[1]).slice(0,10);
+
+  destroyChart('chartDevolCliente');
+  CHARTS.chartDevolCliente = new Chart(document.getElementById('chartDevolCliente'),{
+    type:'bar',
+    data:{ labels:sortedCliente.map(e=>e[0].length>20?e[0].substr(0,20)+'…':e[0]),
+      datasets:[{ label:'Piezas', data:sortedCliente.map(e=>e[1]), backgroundColor:'rgba(255,100,120,0.5)', borderColor:'rgba(255,100,120,0.8)', borderWidth:1 }]
+    },
+    options:{ indexAxis:'y', responsive:true,
+      plugins:{ legend:{ display:false } },
+      scales:{
+        x:{ ticks:{ color:'#5a6070', font:{ family:'IBM Plex Mono', size:9 } }, grid:{ color:'rgba(180,190,210,0.4)' } },
+        y:{ ticks:{ color:'#8892a4', font:{ family:'IBM Plex Mono', size:9 } }, grid:{ display:false } }
+      }
+    }
+  });
+
+  // Chart por planta
+  destroyChart('chartDevolPlanta');
+  CHARTS.chartDevolPlanta = new Chart(document.getElementById('chartDevolPlanta'),{
+    type:'doughnut',
+    data:{ labels:PLANTAS.map(p=>PLANTA_LABELS[p]),
+      datasets:[{ data:PLANTAS.map(p=>filteredDev[p].length), backgroundColor:PLANTAS.map(p=>PLANTA_COLORS[p]), borderColor:'#fff', borderWidth:2 }]
+    },
+    options:{ responsive:true, plugins:{ legend:{ position:'bottom', labels:{ color:'#8892a4', font:{family:'IBM Plex Mono',size:10}, boxWidth:10 } } } }
+  });
+
+  // Chart por día
+  const byDia = {};
+  allDev.forEach(r=>{ const k=r.dia; byDia[k]=(byDia[k]||0)+1; });
+  const diaKeys = Object.keys(byDia).map(Number).sort((a,b)=>a-b);
+
+  destroyChart('chartDevolDia');
+  CHARTS.chartDevolDia = new Chart(document.getElementById('chartDevolDia'),{
+    type:'bar',
+    data:{ labels:diaKeys.map(d=>`D${d}`),
+      datasets:[{ label:'Devoluciones', data:diaKeys.map(d=>byDia[d]), backgroundColor:'rgba(214,48,49,0.5)', borderColor:'#d63031', borderWidth:1 }]
+    },
+    options: chartOpts()
+  });
+
+  // Tabla
+  document.getElementById('tablaDevoluciones').innerHTML = [...allDev]
+    .sort((a,b)=>b.fecha-a.fecha)
+    .map(r => `<tr>
+      <td class="hl">${fmtD(r.fecha)}</td>
+      <td style="color:${PLANTA_COLORS[r.planta]||'var(--text-dim)'};font-weight:700">${r.planta}</td>
+      <td>${r.cliente.length>22?r.cliente.substr(0,22)+'…':r.cliente}</td>
+      <td class="acc">${r.pedido}</td>
+      <td><span class="chip chip-warn">${r.responsable||'—'}</span></td>
+      <td style="font-size:10px;max-width:160px;overflow:hidden;text-overflow:ellipsis;">${r.motivo||'—'}</td>
+      <td class="hl">${fmt(r.piezas)}</td>
+      <td class="wrn">${fmt(r.kilos,1)}</td>
+      <td style="font-size:10px">${r.autoriza||'—'}</td>
+    </tr>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TABLA DIARIO
+// ═══════════════════════════════════════════════════════════════
+function renderTablaDiario(mes, anio, corte) {
+  const plantaId = document.getElementById('filterPlantaDiario').value;
+  const mesVal   = document.getElementById('filterMes').value;
+  const mesAll   = mesVal === 'all';
+
+  const datos = DATA[plantaId].filter(r =>
+    r.anio === anio && (mesAll || (r.mes === mes && r.dia <= corte))
+  ).sort((a,b)=>b.dia-a.dia);
+
+  let acum=0;
+  const acums = {};
+  [...datos].reverse().forEach(r=>{ acum+=r.tonEmb; acums[r.dia]=acum; });
+
+  document.getElementById('tablaProduccion').innerHTML = datos.map(r => {
+    const isParo = r.tonProd === 0;
+    const mTotal = (r.mermaTrim||0)+(r.mermaProc||0);
+    const pTrim  = r.tonProd>0 ? r.mermaTrim/r.tonProd*100 : 0;
+    const pProc  = r.tonProd>0 ? r.mermaProc/r.tonProd*100 : 0;
+    return `<tr>
+      <td class="hl">${fmtD(r.fecha)}</td>
+      <td class="${isParo?'':'acc'}">${isParo?'—':fmt(r.tonEmb)}</td>
+      <td>${isParo?'—':fmt(r.m2,0)}</td>
+      <td>${isParo?'<span style="color:#2a3040">PARO</span>':fmt(r.tonProd)}</td>
+      <td>${isParo?'—':fmt(r.mermaTrim,0)}</td>
+      <td>${isParo?'—':fmt(r.mermaProc,0)}</td>
+      <td>${isParo?'—':`<span class="chip ${chipM(pTrim,META_TRIM_PCT)}">${fmt(pTrim,2)}%</span>`}</td>
+      <td>${isParo?'—':`<span class="chip ${chipM(pProc,META_PROC_PCT)}">${fmt(pProc,2)}%</span>`}</td>
+      <td class="acc">${isParo?'—':fmt(acums[r.dia])}</td>
+      <td style="font-size:9px;color:var(--text-muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;">${r.obs||''}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════════
+function switchTab(name) {
+  const tabs = ['resumen','sk','glama','desa','devoluciones','diario'];
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',tabs[i]===name));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id===`tab-${name}`));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+loadData();
+// Refresco automático cada 10 minutos
+setInterval(loadData, 10 * 60 * 1000);
+</script>
+</body>
+</html>
