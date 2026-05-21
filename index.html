@@ -524,21 +524,24 @@ function parseDate(v) {
 
   // Formato ISO yyyy-mm-dd
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
-    const d = new Date(s);
-    return isNaN(d) ? null : d;
+    const p = s.substring(0,10).split('-').map(Number);
+    return new Date(p[0], p[1]-1, p[2]);
   }
 
   const p = s.split('/');
   if (p.length === 3) {
     let [a, b, c] = p.map(Number);
     const yr = c > 100 ? c : 2000 + c;
-    // Si primer número > 12 → DD/MM/YYYY
+    // Año en primer lugar: YYYY/MM/DD
+    if (a > 1000) { const d = new Date(a, b-1, c); return isNaN(d)?null:d; }
+    // Si primer número > 12 → definitivamente DD/MM/YYYY
     if (a > 12) { const d = new Date(yr, b-1, a); return isNaN(d)?null:d; }
-    // Si segundo número > 12 → MM/DD/YYYY (Google Sheets CSV export)
+    // Si segundo número > 12 → definitivamente MM/DD/YYYY
     if (b > 12) { const d = new Date(yr, a-1, b); return isNaN(d)?null:d; }
-    // Ambos ≤ 12: intentamos MM/DD/YYYY (más común en CSV de Sheets en inglés)
-    const d1 = new Date(yr, a-1, b);
-    return isNaN(d1) ? null : d1;
+    // Ambos ≤ 12: el sheet de Skarton usa DD/MM/YYYY (formato mexicano)
+    // 01/01/2025 = día 1, mes 1 → new Date(2025, 0, 1)
+    const d = new Date(yr, b-1, a); // DD/MM/YYYY
+    return isNaN(d) ? null : d;
   }
   return null;
 }
@@ -711,7 +714,9 @@ function applyFilters() {
   const mesAll = mesVal === 'all';
   const mes    = mesAll ? mesActual : parseInt(mesVal);
   const esActual = !mesAll && (anio === anioActual && mes === mesActual);
-  const corte    = esActual ? diaCorte : 31;
+  // Corte: si es el mes/año actual → hasta hoy; si es pasado → día 31 (todos)
+  // Si mesAll → sin restricción de día (año completo)
+  const corte = mesAll ? 31 : (esActual ? diaCorte : 31);
 
   document.getElementById('pBanner').textContent = mesAll ? `Todo ${anio}` : `${MESES[mes]} ${anio}`;
   document.getElementById('pCorte').textContent  = mesAll ? 'Año completo' : `Día ${corte}${esActual?' (hoy)':''}`;
@@ -749,9 +754,9 @@ function applyFilters() {
 
   // Renderizar
   renderResumen(filtered, filteredDev, metas);
-  renderPlanta('SK',    filtered.SK,    filteredDev.SK,    metas.SK,    filtered, mes, anio);
-  renderPlanta('Glama', filtered.Glama, filteredDev.Glama, metas.Glama, filtered, mes, anio);
-  renderPlanta('Desa',  filtered.Desa,  filteredDev.Desa,  metas.Desa,  filtered, mes, anio);
+  renderPlanta('SK',    filtered.SK,    filteredDev.SK,    metas.SK,    filtered, mes, anio, corte);
+  renderPlanta('Glama', filtered.Glama, filteredDev.Glama, metas.Glama, filtered, mes, anio, corte);
+  renderPlanta('Desa',  filtered.Desa,  filteredDev.Desa,  metas.Desa,  filtered, mes, anio, corte);
   renderDevoluciones(filteredDev);
   renderTablaDiario(mes, anio, corte);
 }
@@ -1032,7 +1037,7 @@ function renderPareto(allDev) {
 // ═══════════════════════════════════════════════════════════════
 // RENDER POR PLANTA (SK / Glama / Desa)
 // ═══════════════════════════════════════════════════════════════
-function renderPlanta(planta, datos, devol, meta, allFiltered, mes, anio) {
+function renderPlanta(planta, datos, devol, meta, allFiltered, mes, anio, corte) {
   const s  = calcStats(datos);
   const id = planta === 'SK' ? 'SK' : planta;
 
@@ -1042,7 +1047,7 @@ function renderPlanta(planta, datos, devol, meta, allFiltered, mes, anio) {
   const anioPrev     = mes===1 ? anio-1 : anio;
 
   const filtrarMesPrev = (arr) => arr.filter(r =>
-    r.anio===anioPrev && r.mes===mesPrevNum && r.dia<=diaCorte
+    r.anio===anioPrev && r.mes===mesPrevNum && r.dia<=corte
   );
   const datosPrev = filtrarMesPrev(DATA[planta]);
   const sPrev     = calcStats(datosPrev);
