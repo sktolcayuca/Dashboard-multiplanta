@@ -246,7 +246,7 @@ footer{border-top:1px solid var(--border);padding:14px 28px;display:flex;justify
           <thead><tr>
             <th>Planta</th><th>Tons Emb.</th><th>Tons Prod.</th><th>m²</th>
             <th>Merma Trim kg</th><th>Merma Proc kg</th>
-            <th>% Trim</th><th>% Proceso</th>
+            <th>% Trim</th><th>% Pagada</th><th>% Proceso</th>
             <th>Días Prod.</th><th>Devol.</th><th>Kg Dev.</th>
           </tr></thead>
           <tbody id="tablaResumen"></tbody>
@@ -615,10 +615,17 @@ function parseMetas(rows) {
     if (!mesNum) continue;
     const mermaRaw = String(c[3]||'').replace('%','').trim();
     const mermaNum = parseFloat(mermaRaw);
+    const rawTons = parseNum(c[1]);
+    // Si la meta está en toneladas (< 50,000) convertir a kg × 1000
+    // Si ya está en kg (≥ 50,000) usar directamente
+    const metaTonsKg = rawTons > 0 && rawTons < 50000 ? rawTons * 1000 : rawTons;
+    const rawM2 = parseNum(c[2]);
+    // m² también puede estar en miles: si < 100,000 asumir que está en unidades ×1000
+    // Imagen muestra 2000000 m² → ya está bien, no multiplicar
     result.push({
       mes:       mesNum,
-      metaTons:  parseNum(c[1]),
-      metaM2:    parseNum(c[2]),
+      metaTons:  metaTonsKg,
+      metaM2:    rawM2,
       metaMerma: isNaN(mermaNum) ? 0.105 : (mermaNum > 1 ? mermaNum/100 : mermaNum),
       diasLab:   parseNum(c[4])
     });
@@ -783,15 +790,20 @@ const fmtD = d => d instanceof Date ? d.toLocaleDateString('es-MX',{day:'2-digit
 const pct  = (a,b) => b>0 ? a/b*100 : 0;
 
 function calcStats(arr) {
-  const tonEmb    = sum(arr,'tonEmb');
-  const tonProd   = sum(arr,'tonProd');
-  const m2        = sum(arr,'m2');
-  const mermaTrim = sum(arr,'mermaTrim');
-  const mermaProc = sum(arr,'mermaProc');
-  const diasProd  = arr.filter(r=>r.tonProd>0).length;
-  const pctTrim   = tonProd>0 ? mermaTrim/tonProd*100 : 0;
-  const pctProc   = tonProd>0 ? mermaProc/tonProd*100 : 0;
-  return { tonEmb, tonProd, m2, mermaTrim, mermaProc, diasProd, pctTrim, pctProc };
+  const tonEmb      = sum(arr,'tonEmb');
+  const tonProd     = sum(arr,'tonProd');
+  const m2          = sum(arr,'m2');
+  const mermaTrim   = sum(arr,'mermaTrim');
+  const mermaPagada = sum(arr,'mermaPagada');
+  const mermaProc   = sum(arr,'mermaProc');
+  const mermaTotal  = mermaTrim + mermaProc;
+  const diasProd    = arr.filter(r=>r.tonProd>0).length;
+  const pctTrim     = tonProd>0 ? mermaTrim/tonProd*100   : 0;
+  const pctPagada   = tonProd>0 ? mermaPagada/tonProd*100 : 0;
+  const pctProc     = tonProd>0 ? mermaProc/tonProd*100   : 0;
+  const pctTotal    = tonProd>0 ? mermaTotal/tonProd*100  : 0;
+  return { tonEmb, tonProd, m2, mermaTrim, mermaPagada, mermaProc, mermaTotal,
+           diasProd, pctTrim, pctPagada, pctProc, pctTotal };
 }
 
 function delta(now, prev) {
@@ -844,16 +856,18 @@ function renderResumen(filtered, filteredDev, metas) {
   PLANTAS.forEach(p => { stats[p] = calcStats(filtered[p]); });
 
   const total = {
-    tonEmb:    PLANTAS.reduce((a,p)=>a+stats[p].tonEmb,0),
-    tonProd:   PLANTAS.reduce((a,p)=>a+stats[p].tonProd,0),
-    m2:        PLANTAS.reduce((a,p)=>a+stats[p].m2,0),
-    mermaTrim: PLANTAS.reduce((a,p)=>a+stats[p].mermaTrim,0),
-    mermaProc: PLANTAS.reduce((a,p)=>a+stats[p].mermaProc,0),
-    devCount:  PLANTAS.reduce((a,p)=>a+filteredDev[p].length,0),
-    devKilos:  PLANTAS.reduce((a,p)=>a+sum(filteredDev[p],'kilos'),0),
+    tonEmb:      PLANTAS.reduce((a,p)=>a+stats[p].tonEmb,0),
+    tonProd:     PLANTAS.reduce((a,p)=>a+stats[p].tonProd,0),
+    m2:          PLANTAS.reduce((a,p)=>a+stats[p].m2,0),
+    mermaTrim:   PLANTAS.reduce((a,p)=>a+stats[p].mermaTrim,0),
+    mermaPagada: PLANTAS.reduce((a,p)=>a+stats[p].mermaPagada,0),
+    mermaProc:   PLANTAS.reduce((a,p)=>a+stats[p].mermaProc,0),
+    devCount:    PLANTAS.reduce((a,p)=>a+filteredDev[p].length,0),
+    devKilos:    PLANTAS.reduce((a,p)=>a+sum(filteredDev[p],'kilos'),0),
   };
-  total.pctTrim = total.tonProd>0 ? total.mermaTrim/total.tonProd*100 : 0;
-  total.pctProc = total.tonProd>0 ? total.mermaProc/total.tonProd*100 : 0;
+  total.pctTrim   = total.tonProd>0 ? total.mermaTrim/total.tonProd*100   : 0;
+  total.pctPagada = total.tonProd>0 ? total.mermaPagada/total.tonProd*100 : 0;
+  total.pctProc   = total.tonProd>0 ? total.mermaProc/total.tonProd*100   : 0;
 
   // KPIs totales
   document.getElementById('kpiResumen').innerHTML = `
@@ -972,6 +986,7 @@ function renderResumen(filtered, filteredDev, metas) {
       <td class="acc">${fmt(s.tonEmb)}</td><td>${fmt(s.tonProd)}</td><td>${fmt(s.m2,0)}</td>
       <td>${fmt(s.mermaTrim,0)}</td><td>${fmt(s.mermaProc,0)}</td>
       <td><span class="chip ${chipM(s.pctTrim,META_TRIM_PCT)}">${fmt(s.pctTrim,2)}%</span></td>
+      <td>${fmt(s.pctPagada,2)}%</td>
       <td><span class="chip ${chipM(s.pctProc,META_PROC_PCT)}">${fmt(s.pctProc,2)}%</span></td>
       <td>${s.diasProd}</td>
       <td class="dng">${dv.length}</td>
@@ -985,6 +1000,7 @@ function renderResumen(filtered, filteredDev, metas) {
     <td style="font-weight:700">${fmt(total.mermaTrim,0)}</td>
     <td style="font-weight:700">${fmt(total.mermaProc,0)}</td>
     <td><span class="chip ${chipM(total.pctTrim,META_TRIM_PCT)}">${fmt(total.pctTrim,2)}%</span></td>
+    <td>${fmt(total.pctPagada||0,2)}%</td>
     <td><span class="chip ${chipM(total.pctProc,META_PROC_PCT)}">${fmt(total.pctProc,2)}%</span></td>
     <td>—</td>
     <td class="dng" style="font-weight:700">${total.devCount}</td>
@@ -1109,6 +1125,18 @@ function renderPlanta(planta, datos, devol, meta, allFiltered, mes, anio, corte)
       <div class="progress-track"><div class="progress-fill ${s.pctProc<=META_PROC_PCT?'green':'danger'}" style="width:${Math.min(pct(s.pctProc,META_PROC_PCT),150)}%"></div></div>
       <div class="kpi-meta ${dProc<=0?'up':'down'}">${dProc>0?'▲':'▼'} ${fmt(Math.abs(dProc),2)}pp vs meta</div>
     </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">% Merma Pagada</div>
+      <div class="kpi-value">${fmt(s.pctPagada,2)}</div>
+      <div class="kpi-unit">% sobre producción</div>
+      <div class="kpi-meta neutral">${fmt(s.mermaPagada,0)} kg pagados</div>
+    </div>
+    <div class="kpi-card ${s.pctTotal<=(META_TRIM_PCT+META_PROC_PCT)?'green':'warn'}">
+      <div class="kpi-label">% Merma Total</div>
+      <div class="kpi-value">${fmt(s.pctTotal,2)}</div>
+      <div class="kpi-unit">Trim + Proceso</div>
+      <div class="kpi-meta neutral">${fmt(s.mermaTotal,0)} kg totales</div>
+    </div>
     <div class="kpi-card orange">
       <div class="kpi-label">Merma Trim (kg)</div>
       <div class="kpi-value">${fmt(s.mermaTrim,0)}</div>
@@ -1148,8 +1176,9 @@ function renderPlanta(planta, datos, devol, meta, allFiltered, mes, anio, corte)
       ${compRow('Tons Embarcadas', s.tonEmb,  'kg', dE)}
       ${compRow('Tons Producidas', s.tonProd, 'kg', dP)}
       ${compRow('m² Producidos',   s.m2,      'm²', dM2)}
-      ${compRow('% Merma Trim',    s.pctTrim, '%',  dT)}
-      ${compRow('% Merma Proceso', s.pctProc, '%',  dPr)}
+      ${compRow('% Merma Trim',    s.pctTrim,   '%', dT)}
+      ${compRow('% Merma Pagada',  s.pctPagada, '%', deltaInv(s.pctPagada, sPrev.pctPagada))}
+      ${compRow('% Merma Proceso', s.pctProc,   '%', dPr)}
     </div>
     <div class="comp-card" style="border-color:rgba(214,48,49,0.2)">
       <div class="comp-title">📊 Devoluciones</div>
@@ -1158,18 +1187,51 @@ function renderPlanta(planta, datos, devol, meta, allFiltered, mes, anio, corte)
       ${compRow('Kilos devueltos',    sum(devol,'kilos'), 'kg',        {txt:'—',cls:'neu'})}
     </div>`;
 
-  // Chart acumulado
+  // Chart acumulado — mes actual + mes anterior + año anterior
   const sortedData = [...datos].sort((a,b)=>a.dia-b.dia);
-  const dias = sortedData.map(r=>`D${r.dia}`);
+  const dias = sortedData.map(r=>`Día ${r.dia}`);
   let ac=0;
   const acums = sortedData.map(r=>{ ac+=r.tonEmb; return ac; });
+
+  // Mes anterior: mismo rango de días
+  const mesPrevN = mes===1 ? 12 : mes-1;
+  const anioPrevN = mes===1 ? anio-1 : anio;
+  const dataMesPrev = DATA[planta].filter(r=>r.anio===anioPrevN && r.mes===mesPrevN)
+    .sort((a,b)=>a.dia-b.dia);
+  let acP=0;
+  const accumsMesPrev = sortedData.map(r=>{
+    const match = dataMesPrev.find(x=>x.dia===r.dia);
+    if(match) acP += match.tonEmb;
+    return acP > 0 || dataMesPrev.some(x=>x.dia<=r.dia) ? acP : null;
+  });
+
+  // Año anterior: mismo mes, mismo rango de días
+  const dataAnioPrev = DATA[planta].filter(r=>r.anio===(anio-1) && r.mes===mes)
+    .sort((a,b)=>a.dia-b.dia);
+  let acY=0;
+  const accumsAnioPrev = sortedData.map(r=>{
+    const match = dataAnioPrev.find(x=>x.dia===r.dia);
+    if(match) acY += match.tonEmb;
+    return acY > 0 || dataAnioPrev.some(x=>x.dia<=r.dia) ? acY : null;
+  });
+
+  const mesLabels = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
   destroyChart(`chartAcum${id}`);
   CHARTS[`chartAcum${id}`] = new Chart(document.getElementById(`chartAcum${id}`),{
     type:'line',
     data:{ labels:dias, datasets:[
-      { label:'Tons Emb. Acumulado', data:acums, borderColor:PLANTA_COLORS[planta], backgroundColor:PLANTA_COLORS[planta]+'22', borderWidth:2.5, fill:true, tension:0.3, pointRadius:3 },
-      { label:'Meta Mensual', data:dias.map(()=>meta.metaTons), borderColor:'#d63031', borderDash:[5,5], pointRadius:0, borderWidth:1.5 }
+      { label:`${mesLabels[mes]} ${anio}`, data:acums,
+        borderColor:PLANTA_COLORS[planta], backgroundColor:PLANTA_COLORS[planta]+'22',
+        borderWidth:2.5, fill:true, tension:0.3, pointRadius:3 },
+      { label:`${mesLabels[mesPrevN]} ${anioPrevN}`, data:accumsMesPrev,
+        borderColor:'#ffd166', backgroundColor:'transparent',
+        borderWidth:1.5, borderDash:[4,4], tension:0.3, pointRadius:2 },
+      { label:`${mesLabels[mes]} ${anio-1}`, data:accumsAnioPrev,
+        borderColor:'#4d9fff', backgroundColor:'transparent',
+        borderWidth:1.5, borderDash:[4,4], tension:0.3, pointRadius:2 },
+      { label:'Meta', data:dias.map(()=>meta.metaTons),
+        borderColor:'#d63031', borderDash:[5,5], pointRadius:0, borderWidth:1.5 }
     ]},
     options: chartOpts('kg')
   });
